@@ -19,7 +19,6 @@
 	//匹配class id 子代选择器
 	//?
 		isSimple = /^.[^:#\[\.]*$/,
-
 		//根据变量查找原则，加快判断速度
 		undefined;
 	//定义jQuery构造函数的prototype，实例化共性方法

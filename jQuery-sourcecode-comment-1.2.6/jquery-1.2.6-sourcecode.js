@@ -41,6 +41,7 @@ jQuery.fn = jQuery.prototype = {
 			this.length = 1;
 			return this;
 		}
+		
 		// Handle HTML strings
 		if ( typeof selector == "string" ) {
 			// Are we dealing with HTML string or an ID?
