@@ -143,7 +143,7 @@
 		attr: function( name, value, type ){
 			var options = name;
 			//如果value为空，则通过'type'或attr方法获取属性值
-			//设置值通过实例的attr接口统一处理(curCSS)
+			//设置值通过jQuery的attr接口统一处理(curCSS)
 			if( name.constructor == String )
 				if( value === undefined )
 					return this[0] && jQuery[ type || "attr"]( this[0], name );
@@ -161,6 +161,41 @@
 							name, jQuery.prop( this, options[ name ], type, i, name )
 						);
 				});
+		},
+		//操作获取实例文本
+		text: function( text ){
+			//设置元素文本值
+			//先清空元素内容再将文本节点添加上去
+			if( typeof text != "object" && text != null )
+				return this.empty().append( (this[0] && this[0].ownerDocument || document).createTextNode( text ) );
+
+			var ret = "";
+
+			jQuery.each( text || this, function(){
+				jQuery.each( this.childNodes, function(){
+					//排除注释节点
+					if( this.nodeType != 8 )
+						//如果是元素节点返回nodeValue
+						ret += this.nodeType != 1 ?
+							this.nodeValue :
+							jQuery.fn.text( [text] );
+				});
+			});
+
+			return ret;
+		},
+		//排除指定元素
+		not: function( selector ){
+			if( selector.constructor == String )
+				if ( isSimple.test( selector ) )
+					return this.pushStack( jQuery.multiFilter( selector, this, true ) );
+				else
+					selector = jQuery.multiFilter( selector, this );
+
+			var isArrayLike = selector.length && selector[selector.length-1] !== undefined && !selector.nodeType
+			return this.filter(function(){
+				return isArrayLike ? jQuery.inArray( this, selector ) < 0 : this != selector;
+			}); 
 		}
 
 	};
@@ -526,6 +561,28 @@
 				elem[ name ] = value;
 
 			return elem[ name ];
+		},
+		//判断元素是否在数组中，并返回所在位置下标
+		inArray: function( elem, array ){
+			for( var i = 0, length = array.length; i < length; i++ )
+				if( array[ i ] === elem )
+					return i;
+			return -1;
+		}
+		//将第二个参数中的元素合并至第一个参数中
+		merage: function( first, second ){
+			var i = 0, elem, pos = first.length;
+
+			//兼容ie
+			if( jQuery.browser.msie ){
+				while( elem = second[ i++ ] )
+					if( elem.nodeType !=8 )
+						first[ pos++ ] = elem;
+			}else
+				while ( elem = second[ i++ ] )
+					first[ pos++ ] = elem;
+
+			return first;
 		}
 	});
 	
@@ -557,6 +614,30 @@
 			maxlength: "maxLength",
 			cellspacing: "cellSpacing"
 		}
+	});
+
+	//通过each方法来对jQuery实例的方法进行扩展
+	jQuery.each({
+		remove: function( selector ){
+			if( !selector || jQuery.filter( selector, [this] ).r.length ){
+				jQuery( "*", this ).add(this).each(function(){
+					jQuery.event.remove(this);
+					jQuery。removeData（this）;
+				});
+				if( rhis.parentNode )
+					this.parentNode.removeChild(this);
+			}
+
+		},
+		empty: function(){
+			//移除当前元素的所有子节点
+			jQuery( ">*", this ).remove();
+
+			while ( this.firstChild )
+				this.removeChild( this.firstChild );
+		}
+	},function(name, fn){
+
 	});
 
 	//共性方法通过each方法统一进行扩展
@@ -599,6 +680,76 @@
 		return elem[0] && parseInt( jQuery.curCSS(elem[0], prop, true), 10 ) || 0;
 	}
 
+	//正则表达式，快速匹配子代选择器，ID选择器，类选择器
+	var chars = jQuery.browser.safari && parseInt(jQuery.browser.version) < 417 ?
+			"(?:[\\w*_-]|\\\\.)" :
+			"(?:[\\w\u0128-\uFFFF*_-]|\\\\.)",
+		quickChild = new RegExp("^>\\s*(" + chars + "+)"),
+		quickID = new RegExp("^(" + chars + "+)(#)(" + chars + "+)"),
+		quickClass = new RegExp("^([#.]?)(" + chars + "*)");
+
+	jQuery.extend({
+		// The regular expressions that power the parsing engine
+		parse: [
+			// Match: [@value='test'], [@foo]
+			/^(\[) *@?([\w-]+) *([!*$^~=]*) *('?"?)(.*?)\4 *\]/,
+
+			// Match: :contains('foo')
+			/^(:)([\w-]+)\("?'?(.*?(\(.*?\))?[^(]*?)"?'?\)/,
+
+			// Match: :even, :last-child, #id, .class
+			new RegExp("^([:.#]*)(" + chars + "+)")
+		],
+
+		//匹配选择器和:not()情况
+		multiFilter: function( expr, elems, not ){
+			var old, cur = [];
+
+
+			while( expr && expr != old ){
+				old = expr;
+				var f = jQuery.filter( expr, elems, not );
+				expr = f.t.replace(/^\s*,\s*/, "" );
+				cur = not ? elems = f.r : jQuery.merge( cur, f.r );
+			}
+
+			return cur;
+		},
+		//匹配指定元素
+		filter: function( t, r, not ){
+			var last;
+
+			while( t && t != last ){
+				last = t;
+
+				var p = jQuery.parse, m;
+
+				//匹配选择器类型
+				for( var i = 0; p[i]; i++ ){
+					m = p[i].exec(t);
+
+					if( m ){
+						t = t.substring( m[0].length );
+
+						m[2] = m[2].replace(/\\g/, "");
+						break;
+					}
+				}
+
+				//没有匹配上
+				if( !m )
+					break;
+
+				//处理:not()否定伪类情况
+				if( m[1] == ":" && m[2] == "not" )
+					//如果not的参数是ID选择器或类选择器则再次进行过滤
+					r = isSimple.test( m[3] ) ?
+						jQuery.filter( m[3], r, true ).r :
+						jQuery( r ).not( m[3] );
+
+			}
+		}
+	});
 	//获取innerHeight，innerWidth
 	jQuery.each(["Height", "Width"], function(i, name){
 		//获取类型left or top，right or bottom
