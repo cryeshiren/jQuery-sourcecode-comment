@@ -345,6 +345,29 @@
 		nodeName: function( elem, name ){
 			return elem.nodeName && elem.nodeName.toUpperCase() == name.toUpperCase();
 		},
+		cache: {},
+		//为指定元素添加key value数据
+		//https://api.jquery.com/jquery.data/
+		data: function( elem, name, data ){
+			//判断对象是否为window
+			elem = elem == window ?
+				windowData :
+				elem;
+			var id = elem[ expando ];
+
+			if( !id )
+				id = elem[ expando ] = ++uuid;
+
+			if( name && !jQuery.cache[ id ] )
+				jQuery.cache[ id ] = {};
+
+			if( data != undefined )
+				jQuery.cache[ id ][ name ] = data;
+
+			return name ?
+				jQuery.cache[ id ][ name ] : 
+				id;
+		}
 		//判断元素是否为function
 		isFunction: function( fn ) {
 			return !!fn && typeof fn != "string" && !fn.nodeName &&
@@ -568,7 +591,7 @@
 				if( array[ i ] === elem )
 					return i;
 			return -1;
-		}
+		},
 		//将第二个参数中的元素合并至第一个参数中
 		merage: function( first, second ){
 			var i = 0, elem, pos = first.length;
@@ -583,6 +606,38 @@
 					first[ pos++ ] = elem;
 
 			return first;
+		},
+		//！进行数组去重，此方法在此版本有一些问题
+		unique: function( array ){
+			var ret = [], done = {};
+
+			try{
+				for( var i = 0, length = array.length; i<length; i++ ){
+					//调用data方法返回一个唯一的id
+					var id = jQuery.data( array[ i ] );
+
+					if( !done[ id ] ){
+						done[ id ] = true;
+						ret.push( array[ i ] );
+					}
+				}
+			} catch( e ){
+				ret = array;
+			}
+			return ret;
+		},
+		//对指定元素作为callback参数进行处理
+		//callback参数1.dom元素 2.index
+		map:function( elems, callback ){
+			var ret = [];
+			for( var i = 0, length = elems.length; i < length; i++ ){
+				var value = callback( elems[ i ], i );
+
+				if( value != null )
+					ret[ ret.length ] = value
+			}
+
+			return ret.concat.apply( [], ret );
 		}
 	});
 	
