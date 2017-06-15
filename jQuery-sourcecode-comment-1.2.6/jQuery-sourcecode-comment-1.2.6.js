@@ -132,7 +132,16 @@
 		each: function( callback, args ){
 			return jQuery.each( this, callback, args );
 		},
-		//
+		//返回元素所在下标
+		index: function( elem ){
+			var ret = -1;
+
+			//判断非空并取出dom元素
+			return jQuery.inArray(
+				elem && elem.jquery ? elem[0] : elem
+			, this );
+		},
+		//获取元素样式
 		css: function( key, value ){
 			//处理设置高度与宽度时value为负数的情况
 			if( (key == 'width' || key == 'height') && parseFloat(value) < 0 )
@@ -183,6 +192,14 @@
 			});
 
 			return ret;
+		},
+		//追加元素
+		append: function(){
+			return this.domManip(arguments, true, false, function(elem){
+				if( this.nodeType == 1 )
+					this.appendChild( elem );
+			});
+			}
 		},
 		//排除指定元素
 		not: function( selector ){
