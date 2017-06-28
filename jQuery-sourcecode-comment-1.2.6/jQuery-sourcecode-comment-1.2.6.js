@@ -213,12 +213,69 @@
 			return this.filter(function(){
 				return isArrayLike ? jQuery.inArray( this, selector ) < 0 : this != selector;
 			}); 
+		}，
+		//
+		domManip: function( args, table, reverse, callback ){
+			var clone = this.length > 1, elems;
+
+			return this.each(function(){
+				if ( !elems ) {
+					elems = jQuery.clean( args, this.ownerDocument );
+
+					if ( reverse )
+						elems.reverse();
+				}
+
+				var obj = this;
+
+				//处理table情况，如果是table则需要加入tbody
+				if ( table && jQuery.nodeName( this, "table" ) && jQuery.nodeName( elems[0], "tr" ) )
+					obj = this.getElementsByTagName("tbody")[0] || this.appendChild( this.ownerDocument.createElement("tbody") );
+
+				var scripts = jQuery( [] );
+
+				jQuery.each(elems, function(){
+					var elem = clone ?
+						jQuery( this ).clone( true )[0] :
+						this;
+
+					// 处理script脚本，如果脚本可以执行，则进行执行
+					if ( jQuery.nodeName( elem, "script" ) )
+						scripts = scripts.add( elem );
+					else {
+						//移除所有的script脚本
+						if ( elem.nodeType == 1 )
+							scripts = scripts.add( jQuery( "script", elem ).remove() );
+
+						//添加元素至当前对象
+						callback.call( obj, elem );
+					}
+				});
+
+				scripts.each( evalScript );
+			});
 		}
 
 	};
 
 	//将通过init构造函数实例化对象的原型指向jQuery.prototype
 	jQuery.fn.init.prototype = jQuery.fn;
+
+	function evalScript( i, elem ){
+		//加载javascript脚本
+		if( elem.src )
+			jQuery.ajax({
+				url: elem.src,
+				async: false,
+				dataType: "script"
+			});
+		//执行javascript脚本
+		else
+			jQuery.globalEval( elem.text || elem.textContent || elem.innerHTML || "" )
+		
+		if ( elem.parentNode )
+			elem.parentNode.removeChild( elem );
+	}
 
 	function now(){
 		return +new Date;
@@ -237,6 +294,37 @@
 
 	//扩展方法
 	jQuery.extend({
+		//解决类库之间关键字冲突
+		noConflict: function(){
+			window.$ = _$;
+
+			//jQuery关键字也冲突的情况
+			if( deep )
+				window.jQuery = _jQuery;
+			
+			return jQuery;
+		},
+		//加载执行javascript脚本
+		globalEval: function( data ){
+			data = jQuery.trim( data );
+
+			if( data ){
+				//添加脚本片段至head便签内
+				//执行完毕后删除
+				var head = document.getElementsByTagName("head")[0] || document.documentElement,
+					script = document.createElement("script");
+
+				script.type = "text/javascript";
+				if ( jQuery.browser.msie )
+					script.text = data;
+				else
+					script.appendChild( document.createTextNode( data ) );
+				//使用insertBefore来避免IE6bug
+				head.insertBefore( script, head.firstChild );
+				head.removeChild( script );
+			}
+		},
+		//?
 		clean: function( elems, context ){
 			//?
 			var ret = [];
