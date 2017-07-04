@@ -193,6 +193,25 @@
 
 			return ret;
 		},
+		//将选择器选择的所有元素用指定的html片段包裹
+		warpAll: function( html ){
+			if( this[0] ){
+				jQuery( html, this[0].ownerDocument )
+					.clone()
+					.insertBefore( this[0] )
+					.map(function(){
+						var elem = this;
+
+						while( elem.firstChild )
+							elem = elem.firstChild;
+
+						return elem;
+					})
+					.append(this);
+			}
+
+			return this;
+		}
 		//追加元素
 		append: function(){
 			return this.domManip(arguments, true, false, function(elem){
@@ -214,7 +233,7 @@
 				return isArrayLike ? jQuery.inArray( this, selector ) < 0 : this != selector;
 			}); 
 		}，
-		//
+		//?
 		domManip: function( args, table, reverse, callback ){
 			var clone = this.length > 1, elems;
 
@@ -776,6 +795,23 @@
 		}
 	});
 
+	//包装原生JS操作DOM的方法
+	jQuery.each({
+		appendTo: "append",
+		prependTo: "prepend",
+		insertBefore: "before",
+		insertAfter: "after",
+		replaceAll: "replaceWith"
+	}, function( name. original ){
+		jQuery.fn[ name ] = function(){
+			var args = arguments;
+
+			return this.each(function(){
+				for( var i = 0, length = args.length; i < length; i++ )
+					jQuery( args[ i ] )[ original ]( this );
+			});
+		};
+	});
 	//通过each方法来对jQuery实例的方法进行扩展
 	jQuery.each({
 		remove: function( selector ){
