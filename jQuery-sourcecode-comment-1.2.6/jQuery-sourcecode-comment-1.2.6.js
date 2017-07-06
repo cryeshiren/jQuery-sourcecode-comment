@@ -211,7 +211,13 @@
 			}
 
 			return this;
-		}
+		},
+		//将选择器选择的所有元素的内部元素用指定元素包裹
+		warpInner: function( html ){
+			return this.each(function(){
+				jQuery(this).contents().warpAll( html );
+			});
+		},
 		//追加元素
 		append: function(){
 			return this.domManip(arguments, true, false, function(elem){
@@ -795,6 +801,28 @@
 		}
 	});
 
+	//节点选择方法
+	jQuery.each({
+		parent: function(elem){return elem.parentNode;},
+		parents: function(elem){return jQuery.dir(elem,"parentNode");},
+		next: function(elem){return jQuery.nth(elem,2,"nextSibling");},
+		prev: function(elem){return jQuery.nth(elem,2,"previousSibling");},
+		nextAll: function(elem){return jQuery.dir(elem,"nextSibling");},
+		prevAll: function(elem){return jQuery.dir(elem,"previousSibling");},
+		siblings: function(elem){return jQuery.sibling(elem.parentNode.firstChild,elem);},
+		children: function(elem){return jQuery.sibling(elem.firstChild);},
+		contents: function(elem){return jQuery.nodeName(elem,"iframe")?elem.contentDocument||elem.contentWindow.document:jQuery.makeArray(elem.childNodes);}
+	}, function(name, fn){
+		jQuery.fn[ name ] = function( selector ) {
+			var ret = jQuery.map( this, fn );
+			//类,伪类选择器情况
+			if ( selector && typeof selector == "string" )
+				ret = jQuery.multiFilter( selector, ret );
+
+			return this.pushStack( jQuery.unique( ret ) );
+		};
+	});
+
 	//包装原生JS操作DOM的方法
 	jQuery.each({
 		appendTo: "append",
@@ -1092,6 +1120,40 @@
 			}
 
 			return { r: r, t: t };
+		},
+		//递归查找
+		dir: function( elem, dir ){
+			var mathced = [],
+				cur = elem[dir];
+
+			while( cur && cur != document ){
+				if( cur.nodeType == 1 )
+					matched.push( cur );
+				cur = cur[dir];
+			}
+			return matched;
+		},
+		//指定层级递归
+		nth: function( cur, result, dir, elem ){
+			//目标级数
+			result = result || 1;
+			var num = 0;
+
+			for( ; cur; cur = cur[dir] )
+				if( cur.nodeType == 1 && ++num == result)
+					break;
+
+			return cur;
+		},
+		//查找同胞节点
+		sibling: function( n, elem ){
+			var r = [];
+
+			for( ; n; n = n.nextSibling ){
+				if ( n,nodeType == 1 && n != elem )
+					r.push( n );
+			}
+			return r;
 		}
 	});
 	//获取innerHeight，innerWidth
