@@ -226,6 +226,16 @@
 			});
 			}
 		},
+		//过滤指定的元素
+		filter: function( selector ){
+			return this.pushStack(
+				jQuery.isFunction( selector ) &&
+				jQuery.grep(this, function(elem, i){
+					return selector.call( elem, i );
+				}) ||
+				jQuery.multiFilter( selector, this );
+				);
+		}
 		//排除指定元素
 		not: function( selector ){
 			if( selector.constructor == String )
@@ -238,7 +248,95 @@
 			return this.filter(function(){
 				return isArrayLike ? jQuery.inArray( this, selector ) < 0 : this != selector;
 			}); 
-		}，
+		},
+		//将元素添加到匹配的元素集合中
+		add: function( selector ){
+			return this.pushStack( jQuery.unique( jQuery.merage(
+					this.get(),
+					typeof selector == 'string' ?
+						//创建新元素
+						jQuery( selector ) :
+						jQuery.makeArray( selector )
+				)));
+		},
+		//判断是否为指定元素
+		is: function( selector ){
+			return !!selector && jQuery.multiFilter( selector, this ).length > 0;
+		},
+		//判断元素是否有某个属性
+		hasClass: function( selector ){
+			//间接调用multiFilter方法
+			return this.is( "." + selector );
+		},
+		//
+		val: function( value ){
+			//获取属性值情况
+			if( value == undefined ){
+				if( this.length ){
+					var elem = this[0];
+
+					//处理select下拉框情况
+					if( jQuery.nodeName( elem, "select" ) ){
+						var index = elem.selectedIndex,
+							values = [],
+							options = elem.options,
+							one = elem.type == "select-one";
+
+						//没有选择
+						if( index < 0 )
+							return null;
+
+						//遍历所有选择节点
+						for( var i = one ? index : 0, max = one ? index + 1 : options.length; i < max; i++ ){
+							var option = options[ i ];
+
+							if( option.selected ){
+								//获取被选择框的值
+								value = jQuery.browser.msie && !option.attributes.value.specified ? option.text : option.value;
+							
+								if( one )
+									return value;
+								//多选情况则返回多个值
+								values.push( value );
+							}
+						}
+
+						return values;
+					//获取指定元素value
+					} else
+						return ( this[0].value || "" ).replace(/\r/g, "");
+				}
+
+				return undefined;
+			}
+
+			//将数字参数转化为字符串
+			if( value.constructor == Number )
+				value += '';
+
+			return this.each(function(){
+				//不是元素节点则返回
+				if( this.nodeType != 1 )
+					return;
+				//处理选择框情况
+				if( value.constructor == Array && /radio|checkbox/.test( this.type ) )
+					this.checked = (jQuery.inArray(this.value, value) >= 0 ||
+						jQuery.inArray(this.name, value) >= 0);
+				//处理下拉框情况
+				else if( jQuery.nodeName( this, "select" ) ){
+					var values = jQuery.makeArray(value);
+
+					jQuery( "option", this ).each(function(){
+						this.selected = (jQuery.inArray( this.value, values ) >= 0 ||
+							jQuery.inArray( this.text, values ) >= 0);
+					});
+
+					if( !values.length )
+						this.selectedIndex = -1;
+				}else
+					this.value = value;
+			});
+		},
 		//?
 		domManip: function( args, table, reverse, callback ){
 			var clone = this.length > 1, elems;
@@ -756,6 +854,16 @@
 			}
 			return ret;
 		},
+		//根据指定条件过滤元素
+		grep: function( elems, callback, inv ){
+			var ret = [];
+
+			for( var i = 0, length = elems.length; i < length; i++ )
+				if( !inv !=callback( elems[i], i ) )
+					ret.push( elems[ i ] );
+
+			return ret;
+		}
 		//对指定元素作为callback参数进行处理
 		//callback参数1.dom元素 2.index
 		map:function( elems, callback ){
