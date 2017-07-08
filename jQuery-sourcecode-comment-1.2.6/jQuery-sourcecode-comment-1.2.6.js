@@ -194,7 +194,7 @@
 			return ret;
 		},
 		//将选择器选择的所有元素用指定的html片段包裹
-		warpAll: function( html ){
+		wrapAll: function( html ){
 			if( this[0] ){
 				jQuery( html, this[0].ownerDocument )
 					.clone()
@@ -213,9 +213,15 @@
 			return this;
 		},
 		//将选择器选择的所有元素的内部元素用指定元素包裹
-		warpInner: function( html ){
+		wrapInner: function( html ){
 			return this.each(function(){
-				jQuery(this).contents().warpAll( html );
+				jQuery(this).contents().wrapAll( html );
+			});
+		},
+		//将选择器选择的每个元素用指定的html片段包裹
+		wrap: function( html ){
+			return this.each(function(){
+				jQuery( this ).wrapAll( html );
 			});
 		},
 		//追加元素
