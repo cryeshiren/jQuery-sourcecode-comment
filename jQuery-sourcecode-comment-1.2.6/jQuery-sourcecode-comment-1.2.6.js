@@ -224,13 +224,33 @@
 				jQuery( this ).wrapAll( html );
 			});
 		},
-		//追加元素
+		//末尾追加元素(实例元素内部)
 		append: function(){
 			return this.domManip(arguments, true, false, function(elem){
 				if( this.nodeType == 1 )
 					this.appendChild( elem );
 			});
 			}
+		},
+		//开头追加元素(实例元素内部)
+		prepend: function(){
+			return this.domManip(arguments, true, true, function(elem){
+				if( this.nodeType == 1 )
+					this.insertBefore( elem, this.firstChild );
+			});
+		},
+		//开头追加元素(实例元素外部)
+		before: function(){
+			return this.domManip(arguments, false, false, function(elem){
+				this.parentNode.insertBefore( elem, this );
+			});
+		},
+		//末尾追加元素(实例元素外部)
+		after: function(){
+			return this.domManip(arguments, false, true, function(elem){
+				//插入下一个同级节点前
+				this.parentNode.insertBefore( elem, this.nextSibling );
+			})
 		},
 		//过滤指定的元素
 		filter: function( selector ){
@@ -241,7 +261,7 @@
 				}) ||
 				jQuery.multiFilter( selector, this );
 				);
-		}
+		},
 		//排除指定元素
 		not: function( selector ){
 			if( selector.constructor == String )
