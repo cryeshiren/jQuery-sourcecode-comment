@@ -363,6 +363,14 @@
 					this.value = value;
 			});
 		},
+		//获取，设置元素innerHTML
+		html: function( value ){
+			return value == undefined ?
+				(this[0] ? 
+					this[0].innerHTML :
+					null ) : 
+				this.empty.append( value );
+		}
 		//?
 		domManip: function( args, table, reverse, callback ){
 			var clone = this.length > 1, elems;
