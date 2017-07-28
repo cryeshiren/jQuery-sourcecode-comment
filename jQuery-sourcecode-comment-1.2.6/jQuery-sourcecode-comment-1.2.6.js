@@ -273,7 +273,7 @@
 			var isArrayLike = selector.length && selector[selector.length-1] !== undefined && !selector.nodeType
 			return this.filter(function(){
 				return isArrayLike ? jQuery.inArray( this, selector ) < 0 : this != selector;
-			}); 
+			});
 		},
 		//将元素添加到匹配的元素集合中
 		add: function( selector ){
@@ -319,7 +319,7 @@
 							if( option.selected ){
 								//获取被选择框的值
 								value = jQuery.browser.msie && !option.attributes.value.specified ? option.text : option.value;
-							
+
 								if( one )
 									return value;
 								//多选情况则返回多个值
@@ -366,9 +366,9 @@
 		//获取，设置元素innerHTML
 		html: function( value ){
 			return value == undefined ?
-				(this[0] ? 
+				(this[0] ?
 					this[0].innerHTML :
-					null ) : 
+					null ) :
 				this.empty.append( value );
 		}
 		//?
@@ -429,7 +429,7 @@
 		//执行javascript脚本
 		else
 			jQuery.globalEval( elem.text || elem.textContent || elem.innerHTML || "" )
-		
+
 		if ( elem.parentNode )
 			elem.parentNode.removeChild( elem );
 	}
@@ -458,7 +458,7 @@
 			//jQuery关键字也冲突的情况
 			if( deep )
 				window.jQuery = _jQuery;
-			
+
 			return jQuery;
 		},
 		//加载执行javascript脚本
@@ -512,7 +512,7 @@
 					var tags = jQuery.trim( elem ).toLowerCase(), div = context.createElement('div');
 
 					//?
-					var wrap = 
+					var wrap =
 						!tags.indexOf("<opt") &&
 						[ 1, "<select multiple='multiple'>", "</select>" ] ||
 
@@ -627,7 +627,7 @@
 				jQuery.cache[ id ][ name ] = data;
 
 			return name ?
-				jQuery.cache[ id ][ name ] : 
+				jQuery.cache[ id ][ name ] :
 				id;
 		}
 		//判断元素是否为function
@@ -810,7 +810,7 @@
 				//此处有问题，后续jQuery版本中进行了更正
 				if( msie && notxml && name == "style" )
 					return jQuery.attr( elem.style, "cssText", value );
-				
+
 				if( set )
 					elem.setAttribute( name, "" + value );
 
@@ -912,7 +912,7 @@
 			return ret.concat.apply( [], ret );
 		}
 	});
-	
+
 	var userAgent = navigator.userAgent.toLowerCase();
 	//浏览器类型
 	jQuery.browser = {
@@ -1040,7 +1040,7 @@
 					this.css( type, size.constructor == String ? size : size + "px" );
 		};
 	});
-	
+
 	//?
 	function num(elem, prop){
 		return elem[0] && parseInt( jQuery.curCSS(elem[0], prop, true), 10 ) || 0;
@@ -1298,6 +1298,37 @@
 			return r;
 		}
 	});
+
+	//scrollLeft方法、scrollTop方法
+	jQuery.each([ 'Left', 'Top' ], function(i, name){
+		var method = 'scroll' + name;
+
+		jQuery.fn[ method ] = function(val){
+			//判断当前对象是否为空
+			if( ![this[0]] )
+				return;
+
+			return val != undefined ?
+				//设置偏移值
+				this.each(function(){
+					//?this[0]?
+					this == window || this == document ?
+						window.scrollTo(
+							!i ? val : jQuery(window).scrollLeft(),
+							 i ? val : jQuery(window).scrollTop()
+						) :
+						this[ method ] = val;
+
+				}) :
+				//返回偏移值
+				this[0] == window || this[0] == document ?
+					self[ i ? 'pageYOffset' : 'pageXOffset' ] ||
+						jQuery.boxModel && documentElement[ method ] ||
+						document.body[ method ] :
+					this[0][ method ];
+		};
+	});
+
 	//获取innerHeight，innerWidth
 	jQuery.each(["Height", "Width"], function(i, name){
 		//获取类型left or top，right or bottom
@@ -1306,8 +1337,8 @@
 
 		jQuery.fn["inner" + name] = function(){
 			//innerHeight = height+padding
-			return this[ name.toLowerCase() ]() + 
-				num(this, "padding" + tl) + 
+			return this[ name.toLowerCase() ]() +
+				num(this, "padding" + tl) +
 				num(this, "padding" + br);
 		};
 
@@ -1316,7 +1347,7 @@
 			return this["inner" + name]() +
 				num(this, "border" + tl + "Width") +
 				num(this, "border" + br + "Width") +
-				(margin ? 
+				(margin ?
 					num(this, "margin" + tl) + num(this, "margin" + br) : 0);
 		};
 	});
