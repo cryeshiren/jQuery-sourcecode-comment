@@ -1538,6 +1538,102 @@
 			};
 		});
 
+	jQuery.fn.extend({
+		_load: jQuery.fn.load,
+
+		load: function( url, params, callback ){
+			if( typeof url != 'string' )
+				return this._load( url );
+
+			//处理url,指定响应内容部分
+			var off = url.indexOf(" ");
+			if( off>=0 ){
+				var selector = url.slice(off, url.length);//选择相应内容的某部分
+				url = url.slice(0, off);
+			}
+
+			//处理callback
+			callback = callback || function(){};
+
+			//默认请求模式
+			var type = "GET";
+
+			if( params )
+			//如果第二个参数是function，则认为是callback
+				if( jQuery.isFunction( params ) ){
+					callback = params;
+					params = null;
+				}else{
+					params = jQuery.param( params );
+					type = "POST";//改为post请求
+				}
+
+			var self = this;
+
+			jQuery.ajax({
+				url: url,
+				type: type,
+				dataType: "html",
+				data: params,
+				complete: function(res, status){
+					if( status == "success" || status == "notmodified" )
+						//如果指定了响应内容的具体片段，则选取具体片段
+						self.html( selector ?
+							jQuery("<div/>")
+								.append(res.responseText.replace(/<script(.|\s)*?\/script>/g, ""))
+								.find(selector) :
+
+							res.responseText);
+
+					self.each( callback, [res.responseText, status, res] );
+				}
+			});
+			//链式调用
+			return this;
+		}
+
+		serialize: function(){
+			return jQuery.param(this.serializeArray());
+		},
+
+		serializeArray: function(){
+			return this.map(function(){//构造数组
+				return jQuery.nodeName(this, "form") ?
+					jQuery.makeArray(this.elements) : this;
+			}).filter(function(){
+				return this.name && !this.disabled &&
+					(this.checked || /select|textarea/i.test(this.nodeName) ||
+						/text|hidden|password/i.test(this.type));
+			})
+		}
+	});
+
+
+	jQuery.extend({
+		//处理请求参数
+		param: function( a ){
+			//参数数组
+			var s = [];
+
+			//jQuery对象
+			if( a.constructor == Array || a.jquery )
+				//构造数据格式为url请求格式，'name=value'
+				jQuery.each( a, function(){
+					s.push( encodeURIComponent(this.name) + "=" + encodeURIComponent( this.value ) );
+				});
+			else
+				for( var j in a )
+					if( a[j] && a[j].constructor == Array )
+						jQuery.each( a[j], function(){
+							s.push( encodeURIComponent(j) + "=" + encodeURIComponent(this) );
+						});
+					else
+						s.push( encodeURIComponent(j) + "=" + encodeURIComponent( jQuery.isFunction(a[j] ? a[j]() : a[j]) ) );
+
+			return s.join("&").replace(/%20/g, "+");
+		}
+	});
+
 	//scrollLeft方法、scrollTop方法
 	jQuery.each([ 'Left', 'Top' ], function(i, name){
 		var method = 'scroll' + name;
