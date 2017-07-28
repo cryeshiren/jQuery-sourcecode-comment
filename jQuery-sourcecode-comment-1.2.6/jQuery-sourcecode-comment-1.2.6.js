@@ -1299,6 +1299,245 @@
 		}
 	});
 
+	//事件扩展工具方法
+	jQuery.event = {
+		add: function( elem, types, handler, data ){
+			//跳过文本节点和注释节点
+			if( elem.nodeType == 3 || elem.nodeType == 8 )
+				return;
+
+			if( jQuery.browser.mise && elem.setInterval )
+				elem = widow;
+
+				//验证global unique id
+				if( !handler.guid )
+					handler.guid = this.guid++;
+
+				if( data != undefined ){
+					var fn = handler;
+
+					handler = this.proxy( fn, function(){
+						return fn.apply( this, arguments );
+					});
+
+					handler.data = data;
+				}
+
+				//?
+				var events = jQuery.data(elem, "events") || jQuery.data(elem, "events", {}),
+					handle = jQuery.data(elem, "handle") || jQuery.data(elem, "handle", function(){
+						if ( typeof jQuery != "undefined" && !jQuery.event.triggered )
+							return jQuery.event.handle.apply(arguments.callee.elem, arguments);
+					});
+				handle.elem = elem;
+
+				jQuery.each(types.split(/\s+/), function(index, type) {
+					var parts = type.split(".");
+					type = parts[0];
+					handler.type = parts[1];
+
+					var handlers = events[type];
+
+					if (!handlers) {
+						handlers = events[type] = {};
+
+						if ( !jQuery.event.special[type] || jQuery.event.special[type].setup.call(elem) === false ) {
+							if (elem.addEventListener)
+								elem.addEventListener(type, handle, false);
+							else if (elem.attachEvent)
+								elem.attachEvent("on" + type, handle);
+						}
+					}
+
+					handlers[handler.guid] = handler;
+
+					jQuery.event.global[type] = true;
+				});
+
+				elem = null;
+		},
+		trigger: function(type, data, elem, donative, extra) {
+			data = jQuery.makeArray(data);
+
+			if ( type.indexOf("!") >= 0 ) {
+				type = type.slice(0, -1);
+				var exclusive = true;
+			}
+
+			if ( !elem ) {
+				if ( this.global[type] )
+					jQuery("*").add([window, document]).trigger(type, data);
+
+			} else {
+				if ( elem.nodeType == 3 || elem.nodeType == 8 )
+					return undefined;
+
+				var val, ret, fn = jQuery.isFunction( elem[ type ] || null ),
+					event = !data[0] || !data[0].preventDefault;
+
+				if ( event ) {
+					data.unshift({
+						type: type,
+						target: elem,
+						preventDefault: function(){},
+						stopPropagation: function(){},
+						timeStamp: now()
+					});
+					data[0][expando] = true;
+				}
+
+				data[0].type = type;
+				if ( exclusive )
+					data[0].exclusive = true;
+
+				var handle = jQuery.data(elem, "handle");
+				if ( handle )
+					val = handle.apply( elem, data );
+
+				if ( (!fn || (jQuery.nodeName(elem, 'a') && type == "click")) && elem["on"+type] && elem["on"+type].apply( elem, data ) === false )
+					val = false;
+
+				if ( event )
+					data.shift();
+
+				if ( extra && jQuery.isFunction( extra ) ) {
+					ret = extra.apply( elem, val == null ? data : data.concat( val ) );
+					if (ret !== undefined)
+						val = ret;
+				}
+
+				if ( fn && donative !== false && val !== false && !(jQuery.nodeName(elem, 'a') && type == "click") ) {
+					this.triggered = true;
+					try {
+						elem[ type ]();
+					} catch (e) {}
+				}
+
+				this.triggered = false;
+			}
+
+			return val;
+		},
+		handle: function(event) {
+			var val, ret, namespace, all, handlers;
+
+			event = arguments[0] = jQuery.event.fix( event || window.event );
+
+			// Namespaced event handlers
+			namespace = event.type.split(".");
+			event.type = namespace[0];
+			namespace = namespace[1];
+			all = !namespace && !event.exclusive;
+
+			handlers = ( jQuery.data(this, "events") || {} )[event.type];
+
+			for ( var j in handlers ) {
+				var handler = handlers[j];
+
+				if ( all || handler.type == namespace ) {
+					event.handler = handler;
+					event.data = handler.data;
+
+					ret = handler.apply( this, arguments );
+
+					if ( val !== false )
+						val = ret;
+
+					if ( ret === false ) {
+						event.preventDefault();
+						event.stopPropagation();
+					}
+				}
+			}
+
+			return val;
+		},
+		guid: 1,
+		global: {},
+		proxy: function( fn, proxy ){
+			proxy.guid = fn.guid = fn.guid || proxy.guid || this.guid++;
+			return proxy;
+		}
+		special: {
+			ready: {
+				setup: function() {
+					bindReady();
+					return;
+				},
+
+				teardown: function() { return; }
+			},
+
+			mouseenter: {
+				setup: function() {
+					if ( jQuery.browser.msie ) return false;
+					jQuery(this).bind("mouseover", jQuery.event.special.mouseenter.handler);
+					return true;
+				},
+
+				teardown: function() {
+					if ( jQuery.browser.msie ) return false;
+					jQuery(this).unbind("mouseover", jQuery.event.special.mouseenter.handler);
+					return true;
+				},
+
+				handler: function(event) {
+					if ( withinElement(event, this) ) return true;
+					event.type = "mouseenter";
+					return jQuery.event.handle.apply(this, arguments);
+				}
+			},
+
+			mouseleave: {
+				setup: function() {
+					if ( jQuery.browser.msie ) return false;
+					jQuery(this).bind("mouseout", jQuery.event.special.mouseleave.handler);
+					return true;
+				},
+
+				teardown: function() {
+					if ( jQuery.browser.msie ) return false;
+					jQuery(this).unbind("mouseout", jQuery.event.special.mouseleave.handler);
+					return true;
+				},
+
+				handler: function(event) {
+					if ( withinElement(event, this) ) return true;
+					event.type = "mouseleave";
+					return jQuery.event.handle.apply(this, arguments);
+				}
+			}
+		}
+
+	};
+
+	jQuery.fn.extend({
+		//事件绑定
+		bind: function( type, data, fn ){
+			return type == "unload" ? this.one(type, data, fn) : this.each(function(){
+				jQuery.event.add( this, type, fn || data, fn && data );
+			});
+		},
+
+		one: function( type, date fn ){
+			var one = jQuery.event.proxy( fn || data, function(event) {
+				jQuery(this).unbind(event, one);
+				return (fn || data).apply( this, arguments );
+			});
+			return this.each(function(){
+				jQuery.event.add( this, type, one, fn && data);
+			});
+		},
+	});
+
+	jQuery.each( ("blur,focus,load,resize,scroll,unload,click,dblclick," +
+		"mousedown,mouseup,mousemove,mouseover,mouseout,change,select," +
+		"submit,keydown,keypress,keyup,error").split(","), function(i, name){
+			jQuery.fn[name] = function(fn){
+				return fn ? this.bind(name, fn) : this.trigger(name);
+			};
+		});
+
 	//scrollLeft方法、scrollTop方法
 	jQuery.each([ 'Left', 'Top' ], function(i, name){
 		var method = 'scroll' + name;
