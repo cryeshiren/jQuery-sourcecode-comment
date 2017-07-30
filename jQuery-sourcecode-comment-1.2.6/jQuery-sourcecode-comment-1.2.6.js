@@ -1590,7 +1590,7 @@
 			});
 			//链式调用
 			return this;
-		}
+		},
 
 		//表单序列化
 		serialize: function(){
@@ -1618,6 +1618,12 @@
 		}
 	});
 
+	//ajax状态API扩展
+	jQuery.each( "ajaxStart,ajaxStop,ajaxComplete,ajaxError,ajaxSuccess,ajaxSend".split(","), function(i,o){
+		jQuery.fn[o] = function(f){
+			return this.bind(o, f);
+		};
+	});
 
 	jQuery.extend({
 		//处理请求参数
