@@ -1625,7 +1625,74 @@
 		};
 	});
 
+	var jsc = now();
+
+
 	jQuery.extend({
+		//get请求
+		get: function( url, data, callback, type ){
+			//统一通过ajax方法执行
+			if( jQuery.isFunction(data) ){
+				callback = data;
+				data = null;
+			}
+
+			return jQuery.ajax({
+				type: "GET",
+				url: url,
+				data: data,
+				success: callback,
+				dataType, type
+			});
+		},
+		//get script请求
+		getScript: function( url, callback ){
+			return jQuery.get(url, null, callback, "script");
+		},
+		//get json请求
+		getJSON: function( url, data, callback ){
+			return jQuery.get(url, data, callback, "json");
+		},
+		//post请求
+		post: function( url, data, callback, type ){
+			if( jQuery.isFunction(data) ){
+				callback = data;
+				data = {};
+			}
+
+			return jQuery.ajax({
+				type: "POST",
+				url: url,
+				data: data,
+				success: callback,
+				dataType, type
+			});
+		},
+		//ajax初始化lib
+		ajaxSettings: {
+			url: location.href,
+			global: true,
+			type: "GET",
+			timeout: 0,
+			contentType: "application/x-www-form-urlencoded",
+			processData: true,
+			async: true,
+			data: null,
+			username: null,
+			password: null,
+			accepts: {
+				xml: "application/xml, text/xml",
+				html: "text/html",
+				script: "text/javascript, application/javascript",
+				json: "application/json, text/javascript",
+				text: "text/plain",
+				_default: "*/*"
+			}
+		},
+		lastModified: {},
+
+
+
 		//处理请求参数
 		param: function( a ){
 			//参数数组
