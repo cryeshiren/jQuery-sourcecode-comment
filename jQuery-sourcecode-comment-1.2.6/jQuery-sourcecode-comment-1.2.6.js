@@ -1689,10 +1689,255 @@
 				_default: "*/*"
 			}
 		},
+		//Last-Modified header
 		lastModified: {},
+		//ajax
+		ajax: function( s ){
+			//参数对象
+			s = jQuery.extend(true, s, jQuery.extend(true, {}, jQuery.ajaxSettings, s));
 
+			var jsonp, jsre = /=\?(&|$)/g, status, data,
+				type = s.toUpperCase();
 
+			//处理请求参数
+			if( s.data && s.processData && typeof s.data != 'string' ){
+				s.data = jQuery.param(s.data);
+			}
 
+			//处理jsonp参数
+			if( s.dataType == 'jsonp' ){
+				if( type == 'GET' ){
+					if( !s.url.match(jsre) ){
+						s.url += (s.url.match(/\?/) ? "&" : "?") + (s.jsonp || "callback") + "=?";
+					}else if( !s.data || !s.data.match(jsre) ){
+						s.data = (s.data ? s.data + "&" : "") + (s.jsonp || "callback") + "=?";
+					}
+				}
+				s.dataType = "json";
+			}
+
+			if( s.dataType == "json" && (s.data && s.data.match(jsre) || s.url.macth(jsre)) ){
+				jsonp = "jsonp" + jsc++;
+
+				if( s.data )
+					s.data = (s.data + "").replace(jsre, "=" + jsonp + "$1")
+				s.url = s.url.replace(jsre, "=" + jsonp + "$1");
+
+				s.dataType = "script";
+
+				window[ jsonp ] = function(tmp){
+					data = tmp;
+					success();
+					complete();
+
+					window[ jsonp ] = undefined;
+					try{ delete window[ jsonp ]; } catch(e){}
+					if( head )
+						head.removeChild( script );
+				};
+			}
+
+			if( s.dataType == "script" && s.cache == null  )
+				s.cache = false;
+
+			if( s.cache === false && type == "GET" ){
+				var ts = now();
+				//替换_=
+				var ret = s.url.replace(/(\?|&)_=.*?(&|$)/, "$1_=" + ts + "$2");
+				//添加时间戳
+				s.url = ret + ((ret == s.url) ? (s.url.match(/\?/) ? "&" : "?") + "_=" + ts : "");
+			}
+			if( s.data && type == "GET" ){
+				//如果是get请求，则将请求参数拼接url后
+				s.url += (s.url.match(/\?/) ? "&" : "?") + s.data;
+
+				//处理ie问题
+				s.data = null;
+			}
+
+			if( s.global && !jQuery.active++ )
+				jQuery.event.trigger( "ajaxStart" );
+
+			var remote = /^(?:\w+:)?\/\/([^\/?#]+)/;
+
+			//响应类型为json或者script，请求类型为get
+			if( s.dataType == "script" && type == "GET"
+		 			&& remote.test(s.url) && remote.exec(s.url)[1] != location.host){
+				var head = document.getElementsByTagName("head")[0];
+				var script = document.createElement("script");
+				script.src = s.url;
+				if( s.scriptCharset )
+					script.charset = s.scriptCharset;
+
+				if( !jsonp ){
+					var done = false;
+
+					script.onload = script.onreadystatechange = function(){
+						if( !done && (!this.readyState ||
+							this.readyState == "loaded" || this.readyState == "complete")){
+							done = true;
+							success();
+							complete();
+							head.removeChild( script );
+						}
+					};
+				}
+
+				head.appendChild(script);
+				return undefined;
+			}
+
+			var requestDone = false;
+
+			var xhr = window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : new XMLHttpRequest();
+
+			//发起请求
+			if( s.username )
+				xhr.open(type, s.url, s.async, s.username, s.password);
+			else
+				xhr.open(type, s.url, s.async);
+
+				// Need an extra try/catch for cross domain requests in Firefox 3
+				try {
+					// Set the correct header, if data is being sent
+					if ( s.data )
+						xhr.setRequestHeader("Content-Type", s.contentType);
+
+					// Set the If-Modified-Since header, if ifModified mode.
+					if ( s.ifModified )
+						xhr.setRequestHeader("If-Modified-Since",
+							jQuery.lastModified[s.url] || "Thu, 01 Jan 1970 00:00:00 GMT" );
+
+					// Set header so the called script knows that it's an XMLHttpRequest
+					xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+
+					// Set the Accepts header for the server, depending on the dataType
+					xhr.setRequestHeader("Accept", s.dataType && s.accepts[ s.dataType ] ?
+						s.accepts[ s.dataType ] + ", */*" :
+						s.accepts._default );
+				} catch(e){}
+
+				// Allow custom headers/mimetypes
+				if ( s.beforeSend && s.beforeSend(xhr, s) === false ) {
+					// cleanup active request counter
+					s.global && jQuery.active--;
+					// close opended socket
+					xhr.abort();
+					return false;
+				}
+
+				if ( s.global )
+					jQuery.event.trigger("ajaxSend", [xhr, s]);
+
+				// Wait for a response to come back
+				var onreadystatechange = function(isTimeout){
+					// The transfer is complete and the data is available, or the request timed out
+					if ( !requestDone && xhr && (xhr.readyState == 4 || isTimeout == "timeout") ) {
+						requestDone = true;
+
+						// clear poll interval
+						if (ival) {
+							clearInterval(ival);
+							ival = null;
+						}
+
+						status = isTimeout == "timeout" && "timeout" ||
+							!jQuery.httpSuccess( xhr ) && "error" ||
+							s.ifModified && jQuery.httpNotModified( xhr, s.url ) && "notmodified" ||
+							"success";
+
+						if ( status == "success" ) {
+							// Watch for, and catch, XML document parse errors
+							try {
+								// process the data (runs the xml through httpData regardless of callback)
+								data = jQuery.httpData( xhr, s.dataType, s.dataFilter );
+							} catch(e) {
+								status = "parsererror";
+							}
+						}
+
+						// Make sure that the request was successful or notmodified
+						if ( status == "success" ) {
+							// Cache Last-Modified header, if ifModified mode.
+							var modRes;
+							try {
+								modRes = xhr.getResponseHeader("Last-Modified");
+							} catch(e) {} // swallow exception thrown by FF if header is not available
+
+							if ( s.ifModified && modRes )
+								jQuery.lastModified[s.url] = modRes;
+
+							// JSONP handles its own success callback
+							if ( !jsonp )
+								success();
+						} else
+							jQuery.handleError(s, xhr, status);
+
+						// Fire the complete handlers
+						complete();
+
+						// Stop memory leaks
+						if ( s.async )
+							xhr = null;
+					}
+				};
+
+				if ( s.async ) {
+					// don't attach the handler to the request, just poll it instead
+					var ival = setInterval(onreadystatechange, 13);
+
+					// Timeout checker
+					if ( s.timeout > 0 )
+						setTimeout(function(){
+							// Check to see if the request is still happening
+							if ( xhr ) {
+								// Cancel the request
+								xhr.abort();
+
+								if( !requestDone )
+									onreadystatechange( "timeout" );
+							}
+						}, s.timeout);
+				}
+
+				// Send the data
+				try {
+					xhr.send(s.data);
+				} catch(e) {
+					jQuery.handleError(s, xhr, null, e);
+				}
+
+				// firefox 1.5 doesn't fire statechange for sync requests
+				if ( !s.async )
+					onreadystatechange();
+
+				function success(){
+					// If a local callback was specified, fire it and pass it the data
+					if ( s.success )
+						s.success( data, status );
+
+					// Fire the global callback
+					if ( s.global )
+						jQuery.event.trigger( "ajaxSuccess", [xhr, s] );
+				}
+
+				function complete(){
+					// Process result
+					if ( s.complete )
+						s.complete(xhr, status);
+
+					// The request was completed
+					if ( s.global )
+						jQuery.event.trigger( "ajaxComplete", [xhr, s] );
+
+					// Handle the global AJAX counter
+					if ( s.global && ! --jQuery.active )
+						jQuery.event.trigger( "ajaxStop" );
+				}
+
+				// return XMLHttpRequest to allow aborting the request etc.
+				return xhr;
+		}
 		//处理请求参数
 		param: function( a ){
 			//参数数组
