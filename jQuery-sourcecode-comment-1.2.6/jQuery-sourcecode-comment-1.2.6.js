@@ -1938,6 +1938,64 @@
 				// return XMLHttpRequest to allow aborting the request etc.
 				return xhr;
 		}
+
+		handleError: function( s, xhr, status, e ) {
+			// If a local callback was specified, fire it
+			if ( s.error ) s.error( xhr, status, e );
+
+			// Fire the global callback
+			if ( s.global )
+				jQuery.event.trigger( "ajaxError", [xhr, s, e] );
+		},
+
+		// Counter for holding the number of active queries
+		active: 0,
+
+		// Determines if an XMLHttpRequest was successful or not
+		httpSuccess: function( xhr ) {
+			try {
+				// IE error sometimes returns 1223 when it should be 204 so treat it as success, see #1450
+				return !xhr.status && location.protocol == "file:" ||
+					( xhr.status >= 200 && xhr.status < 300 ) || xhr.status == 304 || xhr.status == 1223 ||
+					jQuery.browser.safari && xhr.status == undefined;
+			} catch(e){}
+			return false;
+		},
+
+		// Determines if an XMLHttpRequest returns NotModified
+		httpNotModified: function( xhr, url ) {
+			try {
+				var xhrRes = xhr.getResponseHeader("Last-Modified");
+
+				// Firefox always returns 200. check Last-Modified date
+				return xhr.status == 304 || xhrRes == jQuery.lastModified[url] ||
+					jQuery.browser.safari && xhr.status == undefined;
+			} catch(e){}
+			return false;
+		},
+
+		httpData: function( xhr, type, filter ) {
+			var ct = xhr.getResponseHeader("content-type"),
+				xml = type == "xml" || !type && ct && ct.indexOf("xml") >= 0,
+				data = xml ? xhr.responseXML : xhr.responseText;
+
+			if ( xml && data.documentElement.tagName == "parsererror" )
+				throw "parsererror";
+
+			// Allow a pre-filtering function to sanitize the response
+			if( filter )
+				data = filter( data, type );
+
+			// If the type is "script", eval it in global context
+			if ( type == "script" )
+				jQuery.globalEval( data );
+
+			// Get the JavaScript object, if JSON is used.
+			if ( type == "json" )
+				data = eval("(" + data + ")");
+
+			return data;
+		},
 		//处理请求参数
 		param: function( a ){
 			//参数数组
@@ -1961,6 +2019,263 @@
 			return s.join("&").replace(/%20/g, "+");
 		}
 	});
+
+
+	//jQuery动画方法
+	jQuery.fn.extend({
+		show: function( speed, callback ){
+			return speed ?
+				this.animate({
+					height: "show", width: "show", opacity: "show"
+				}, speed, callback) :
+				//无显示速度
+				this.filter(":hidden").each(function(){
+					this.style.display = this.oldblock || "";
+					if( jQuery.css(this, "display") == "none" ){
+						//构建新元素,根据不同浏览器环境获取不同的display属性值
+						var elem = jQuery("<"+this.tagName + "/>").appendTo("body");
+						this.style.display = elem.css("display");
+
+						if( this.style.display == "none" )
+							this.style.display = "block";
+						elem.remove();
+					}
+				}).end();
+		},
+		hide: function( speed, callback ){
+			return speed ?
+				this.animate({
+					height: "hide", width: "hide", opacity: "hide"
+				}, speed, callback) :
+				this.filter(":visible").each(function(){
+					this.oldblock = this.oldblock || jQuery.css(this, "display");
+					this.style.display = "none";
+				}).end();
+		},
+
+		_toggle: jQuery.fn.toggle,
+
+		toggle: function( fn1, fn2 ){
+			return jQuery.isFunction(fn) && jQuery.isFunction(fn2) ?
+				this._toggle.apply( this, arguments ) :
+				fn ?
+					this.animate({
+						height: "toggle", width: "toggle", opacity: "toggle"
+					}, fn, fn2) :
+					this.each(function(){
+						jQuery(this)[ jQuery(this).is(":hidden") ? "show" : "hide" ]();
+					});
+		},
+
+		slideDown: function( speed, callback ){
+			return this.animate({height: "show"}, speed, callback);
+		},
+
+		slideUp: function( speed, callback ){
+			return this.animate({height: "hide"}, speed, callback);
+		},
+
+		slideToggle: function( speed, callback ){
+			return this.animate({height: "toggle"}, speed, callback);
+		},
+
+		fadeIn: function( speed, callback ){
+			return this.animate({opacity: "show"}, speed, callback);
+		},
+
+		fadeOut: function( speed, callback ){
+			return this.animate({opacity: "hide"}, speed, callback);
+		}
+
+		fadeTo: function( speed, to, callback ){
+			return this.animate({opacity: to}, speed, callback);
+		}
+
+		//动画核心方法
+		animate: function( prop, speed, easing, callback ){
+			var optall = jQuery.speed(speed, easing, callback);
+
+			return this[ optall.queue === false ? "each" : "queue" ](function(){
+				if ( this.nodeType != 1)
+					return false;
+
+				var opt = jQuery.extend({}, optall), p,
+					hidden = jQuery(this).is(":hidden"), self = this;
+
+				for ( p in prop ) {
+					if ( prop[p] == "hide" && hidden || prop[p] == "show" && !hidden )
+						return opt.complete.call(this);
+
+					if ( p == "height" || p == "width" ) {
+						// Store display property
+						opt.display = jQuery.css(this, "display");
+
+						// Make sure that nothing sneaks out
+						opt.overflow = this.style.overflow;
+					}
+				}
+
+				if ( opt.overflow != null )
+					this.style.overflow = "hidden";
+
+				opt.curAnim = jQuery.extend({}, prop);
+
+				jQuery.each( prop, function(name, val){
+					var e = new jQuery.fx( self, opt, name );
+
+					if ( /toggle|show|hide/.test(val) )
+						e[ val == "toggle" ? hidden ? "show" : "hide" : val ]( prop );
+					else {
+						var parts = val.toString().match(/^([+-]=)?([\d+-.]+)(.*)$/),
+							start = e.cur(true) || 0;
+
+						if ( parts ) {
+							var end = parseFloat(parts[2]),
+								unit = parts[3] || "px";
+
+							// We need to compute starting value
+							if ( unit != "px" ) {
+								self.style[ name ] = (end || 1) + unit;
+								start = ((end || 1) / e.cur(true)) * start;
+								self.style[ name ] = start + unit;
+							}
+
+							// If a +=/-= token was provided, we're doing a relative animation
+							if ( parts[1] )
+								end = ((parts[1] == "-=" ? -1 : 1) * end) + start;
+
+							e.custom( start, end, unit );
+						} else
+							e.custom( start, val, "" );
+					}
+				});
+
+					// For JS strict compliance
+				return true;
+			});
+		},
+		queue: function(type, fn){
+			if ( jQuery.isFunction(type) || ( type && type.constructor == Array )) {
+				fn = type;
+				type = "fx";
+			}
+
+			if ( !type || (typeof type == "string" && !fn) )
+				return queue( this[0], type );
+
+			return this.each(function(){
+				if ( fn.constructor == Array )
+					queue(this, type, fn);
+				else {
+					queue(this, type).push( fn );
+
+					if ( queue(this, type).length == 1 )
+						fn.call(this);
+				}
+			});
+		},
+		stop: function(clearQueue, gotoEnd){
+			var timers = jQuery.timers;
+
+			if (clearQueue)
+				this.queue([]);
+
+			this.each(function(){
+				// go in reverse order so anything added to the queue during the loop is ignored
+				for ( var i = timers.length - 1; i >= 0; i-- )
+					if ( timers[i].elem == this ) {
+						if (gotoEnd)
+							// force the next step to be the last
+							timers[i](true);
+						timers.splice(i, 1);
+					}
+			});
+
+			// start the next in the queue if the last step wasn't forced
+			if (!gotoEnd)
+				this.dequeue();
+
+			return this;
+		}
+	});
+
+	var queue = function( elem, type, array ) {
+		if ( elem ){
+
+			type = type || "fx";
+
+			var q = jQuery.data( elem, type + "queue" );
+
+			if ( !q || array )
+				q = jQuery.data( elem, type + "queue", jQuery.makeArray(array) );
+
+		}
+		return q;
+	};
+
+	jQuery.fn.dequeue = function(type){
+		type = type || "fx";
+
+		return this.each(function(){
+			var q = queue(this, type);
+
+			q.shift();
+
+			if ( q.length )
+				q[0].call( this );
+		});
+	};
+
+	jQuery.extend({
+		//构造属性对象
+		speed: function(speed, easing, fn) {
+			var opt = speed && speed.constructor == Object ? speed : {
+				complete: fn || !fn && easing ||
+					jQuery.isFunction( speed ) && speed,
+				duration: speed,
+				easing: fn && easing || easing && easing.constructor != Function && easing
+			};
+
+			opt.duration = (opt.duration && opt.duration.constructor == Number ?
+				opt.duration :
+				jQuery.fx.speeds[opt.duration]) || jQuery.fx.speeds.def;
+
+			// Queueing
+			opt.old = opt.complete;
+			opt.complete = function(){
+				if ( opt.queue !== false )
+					jQuery(this).dequeue();
+				if ( jQuery.isFunction( opt.old ) )
+					//执行callback
+					opt.old.call( this );
+			};
+
+			return opt;
+		},
+
+		easing: {
+			linear: function( p, n, firstNum, diff ) {
+				return firstNum + diff * p;
+			},
+			swing: function( p, n, firstNum, diff ) {
+				return ((-Math.cos(p*Math.PI)/2) + 0.5) * diff + firstNum;
+			}
+		},
+
+		timers: [],
+		timerId: null,
+
+		fx: function( elem, options, prop ){
+			this.options = options;
+			this.elem = elem;
+			this.prop = prop;
+
+			if ( !options.orig )
+				options.orig = {};
+		}
+
+	});
+
 
 	//scrollLeft方法、scrollTop方法
 	jQuery.each([ 'Left', 'Top' ], function(i, name){
